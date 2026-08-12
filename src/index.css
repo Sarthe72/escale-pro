@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+html {
+  font-size: 18px;
+}
+
+body {
+  background-color: #f5f0e6;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Empêche le zoom iOS sur les inputs */
+input, select, textarea {
+  font-size: 16px !important;
+}
