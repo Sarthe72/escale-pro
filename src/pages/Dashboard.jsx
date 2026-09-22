@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FileText, Receipt, AlertCircle, Plus } from 'lucide-react';
+import { FileText, Receipt, AlertCircle, Plus, Download } from 'lucide-react';
 import { getDevis, getFactures } from '../lib/store';
 import { PRESTATION_TYPES, fmt, fmtDate, calcTTC } from '../lib/constants';
 import { checkPin, savePin, logout } from '../components/PinScreen';
@@ -81,12 +81,49 @@ export default function Dashboard() {
   const [devis, setDevis] = useState([]);
   const [factures, setFactures] = useState([]);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(() =>
+    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+  );
   const navigate = useNavigate();
 
   useEffect(() => {
     setDevis(getDevis());
     setFactures(getFactures());
   }, []);
+
+  useEffect(() => {
+    const displayMode = window.matchMedia('(display-mode: standalone)');
+    const updateInstalled = () => {
+      setIsInstalled(displayMode.matches || window.navigator.standalone === true);
+    };
+
+    displayMode.addEventListener?.('change', updateInstalled);
+    window.addEventListener('escale-pro-installed', updateInstalled);
+
+    return () => {
+      displayMode.removeEventListener?.('change', updateInstalled);
+      window.removeEventListener('escale-pro-installed', updateInstalled);
+    };
+  }, []);
+
+  const installApp = async () => {
+    const installPrompt = window.__escaleProInstallPrompt;
+
+    if (installPrompt) {
+      await installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        window.__escaleProInstallPrompt = null;
+        setIsInstalled(true);
+      }
+      return;
+    }
+
+    const isApple = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+    alert(isApple
+      ? 'Appuyez sur le bouton Partager, puis sur « Sur l’écran d’accueil ». '
+      : 'Ouvrez le menu du navigateur (☰ ou ⋮), puis choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».');
+  };
 
   const devisAttente = devis.filter(d => d.statut === 'attente');
   const devisAcceptes = devis.filter(d => d.statut === 'accepte');
@@ -217,6 +254,13 @@ export default function Dashboard() {
             style={{ background: 'none', border: 'none', fontSize: '13px', color: '#94a3b8', cursor: 'pointer', padding: '8px 16px' }}>
             Changer le code PIN
           </button>
+          {!isInstalled && (
+            <button type="button" onClick={installApp}
+              style={{ background: 'none', border: 'none', fontSize: '14px', color: '#2d6a4f', fontWeight: '600', cursor: 'pointer', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+              <Download size={16} aria-hidden="true" />
+              Installer l’application
+            </button>
+          )}
           <button type="button" onClick={() => { logout(); window.location.reload(); }}
             style={{ background: 'none', border: 'none', fontSize: '13px', color: '#94a3b8', cursor: 'pointer', padding: '8px 16px' }}>
             Se déconnecter
