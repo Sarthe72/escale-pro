@@ -1,8 +1,10 @@
 // Stockage local — sera remplacé par Cloudflare D1
+import { isVisitor, visitorData, getVisitorInvoices, assertWritable } from './visitor.js';
+import {cachedSharedInvoices} from './crmApi';
 const KEYS = { clients: 'ep_clients', prestations: 'ep_prestations', devis: 'ep_devis', factures: 'ep_factures' };
 
-const load = (key) => JSON.parse(localStorage.getItem(key) || '[]');
-const save = (key, data) => localStorage.setItem(key, JSON.stringify(data));
+const load = (key) => isVisitor ? structuredClone(visitorData[key] || []) : JSON.parse(localStorage.getItem(key) || '[]');
+const save = (key, data) => { assertWritable(); localStorage.setItem(key, JSON.stringify(data)); };
 const uid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0;
   return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
@@ -70,8 +72,9 @@ export const saveDevis = (d) => {
 export const deleteDevis = (id) => save(KEYS.devis, load(KEYS.devis).filter(d => d.id !== id));
 
 // FACTURES
-export const getFactures = () => load(KEYS.factures);
+export const getFactures = () => [...load(KEYS.factures), ...(isVisitor ? getVisitorInvoices() : cachedSharedInvoices())];
 export const saveFacture = (f) => {
+  if(f.orderId || f.id?.startsWith('holiday-invoice-')) throw new Error('La facture de commande se gère depuis la commande liée.');
   const list = load(KEYS.factures);
   if (f.id) {
     const idx = list.findIndex(x => x.id === f.id);
@@ -85,6 +88,6 @@ export const saveFacture = (f) => {
     return created;
   }
 };
-export const deleteFacture = (id) => save(KEYS.factures, load(KEYS.factures).filter(f => f.id !== id));
+export const deleteFacture = (id) => { if(id.startsWith('holiday-invoice-'))throw new Error('Une facture émise ne peut pas être supprimée.');save(KEYS.factures, load(KEYS.factures).filter(f => f.id !== id)); };
 
-export const resetAll = () => Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+export const resetAll = () => { assertWritable(); Object.values(KEYS).forEach(k => localStorage.removeItem(k)); };

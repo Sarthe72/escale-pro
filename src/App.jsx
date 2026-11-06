@@ -1,5 +1,7 @@
-import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, Receipt, Users, BarChart2 } from 'lucide-react';
+import { HashRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { isVisitor } from './lib/visitor';
+import { LayoutDashboard, FileText, Receipt, Users, BarChart2, TreePine } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Devis from './pages/Devis';
 import Factures from './pages/Factures';
@@ -7,10 +9,12 @@ import Clients from './pages/Clients';
 import Prestations from './pages/Prestations';
 import PrintDevis from './pages/PrintDevis';
 import PrintFacture from './pages/PrintFacture';
-import PinScreen from './components/PinScreen';
+import CrmSession from './components/CrmSession';
+import Commandes from './pages/Commandes';
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Accueil' },
+  { to: '/commandes', icon: TreePine, label: 'Commandes NOËL' },
   { to: '/devis', icon: FileText, label: 'Devis' },
   { to: '/factures', icon: Receipt, label: 'Factures' },
   { to: '/clients', icon: Users, label: 'Clients' },
@@ -81,6 +85,7 @@ function AppContent() {
       <div style={{ position: 'relative', zIndex: 1 }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/commandes" element={<Commandes />} />
           <Route path="/devis" element={<Devis />} />
           <Route path="/factures" element={<Factures />} />
           <Route path="/clients" element={<Clients />} />
@@ -95,11 +100,21 @@ function AppContent() {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (!isVisitor) return;
+    const lock = () => document.querySelectorAll('button').forEach(button => {
+      if (button.dataset.visitorSimulation === 'true') return;
+      const label = [button.textContent,button.title,button.getAttribute('aria-label')].join(' ');
+      if (/nouve|ajouter|créer|enregistr|supprim|modifier|convertir|envoyer|paiement reçu|déconnecter|changer.*pin|changer.*code|sauvegard|✓ Accepté|✗ Refusé|✓ Payée|⚠ En retard/i.test(label)) { button.disabled = true; button.title = 'Mode visiteur : consultation uniquement'; }
+    });
+    lock(); const observer = new MutationObserver(lock); observer.observe(document.getElementById('root'), {childList:true,subtree:true});
+    return () => observer.disconnect();
+  }, []);
+  const Router = HashRouter;
+  const content = <AppContent />;
   return (
-    <BrowserRouter>
-      <PinScreen>
-        <AppContent />
-      </PinScreen>
-    </BrowserRouter>
+    <Router>
+      {isVisitor ? <div onSubmitCapture={event=>{if(!event.target.matches('[data-visitor-form]')){event.preventDefault();event.stopPropagation();}}} onClickCapture={event=>{const link=event.target.closest('a');if(link && /^(mailto:|tel:|https?:)/.test(link.getAttribute('href')||'')){event.preventDefault();event.stopPropagation();}}}><div role="status" style={{background:'#fff1cb',color:'#563d11',padding:'12px 20px',fontWeight:600}}>Mode visiteur · Données fictives · Simulation disponible dans Commandes</div>{content}</div> : <CrmSession>{content}</CrmSession>}
+    </Router>
   );
 }

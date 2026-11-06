@@ -1,8 +1,10 @@
+import {getCrmToken,crmRequest} from '../lib/crmApi';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getDevis } from '../lib/store';
 import { fmt, fmtDate, calcTTC, PRESTATION_TYPES } from '../lib/constants';
+import { isVisitor, getVisitorOrders } from '../lib/visitor';
 
 const DEVIS_STATUT_STYLE = {
   attente: { color: '#854d0e', label: 'En attente' },
@@ -14,14 +16,40 @@ export default function Clients() {
   const [devis, setDevis] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [sort, setSort] = useState('activite');
+  const [category, setCategory] = useState('traiteur');
+  const [orders, setOrders] = useState([]);
+  const [orderError, setOrderError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => { setDevis(getDevis()); }, []);
+  useEffect(() => {
+    if (isVisitor) { setOrders(getVisitorOrders()); return; }
+    const token = getCrmToken();
+    if (!token) { setOrderError('Connectez les commandes dans Commandes NOËL pour retrouver leurs clients.'); return; }
+    const controller = new AbortController();
+    crmRequest('orders',{token,signal:controller.signal})
+      .then(data=>setOrders(data.orders)).catch(error=>{if(error.name!=='AbortError')setOrderError('Les clients des commandes sont momentanément indisponibles. Reconnectez les commandes.');});
+    return ()=>controller.abort();
+  }, []);
+
+  const orderRecords = orders.map(order=>({
+    id:order.id,numero:order.id,clientNom:[order.firstName,order.name].filter(Boolean).join(' '),
+    clientTel:order.phone==='—'?'':order.phone,clientEmail:order.email,clientAdresse:'',
+    datePrestation:order.pickup,createdAt:order.createdAt||order.pickup,
+    statut:order.status==='cancelled'?'refuse':'accepte',prestationType:'commande',
+    lignes:order.items.map(item=>({description:item.name,quantite:item.quantity,prixUnitaire:item.price/100})),
+    tva:0,_order:true,pendingPrice:order.total===null,paid:order.paid,orderStatus:order.status,
+  }));
+  const records=[...devis,...orderRecords];
+  const categoryOf=record=>record._order?'commandes':record.prestationType==='chambre'?'chambre':'traiteur';
+  const categories=[['traiteur','Traiteur'],['chambre','Chambre'],['commandes','Commandes']];
 
   const clientMap = {};
-  devis.forEach(d => {
+  records.filter(record=>categoryOf(record)===category).forEach(d => {
     const nom = d.clientNom?.trim() || '—';
-    if (!clientMap[nom]) clientMap[nom] = { nom, adresse: '', devis: [], lastDate: '' };
+    if (!clientMap[nom]) clientMap[nom] = { nom, adresse: '', telephone:'', email:'', devis: [], lastDate: '' };
+    if(d.clientTel)clientMap[nom].telephone=d.clientTel;
+    if(d.clientEmail)clientMap[nom].email=d.clientEmail;
     clientMap[nom].devis.push(d);
     const date = d.dateEnvoi || d.createdAt || '';
     if (date > clientMap[nom].lastDate) {
@@ -35,7 +63,7 @@ export default function Clients() {
     if (c.devis.every(d => d.statut === 'refuse')) return 'refuse';
     return 'prospect';
   };
-  const getCA = (c) => c.devis.filter(d => d.statut === 'accepte').reduce((s, d) => s + calcTTC(d.lignes, d.tva), 0);
+  const getCA = (c) => c.devis.filter(d => d.statut === 'accepte' && (!d._order || d.paid)).reduce((s, d) => s + calcTTC(d.lignes, d.tva), 0);
 
   let clients = Object.values(clientMap);
   if (sort === 'activite') clients = clients.sort((a, b) => b.lastDate.localeCompare(a.lastDate));
@@ -60,6 +88,11 @@ export default function Clients() {
         </p>
       </div>
 
+      <div role="group" aria-label="Catégories de clients" style={{display:'flex',gap:8,padding:16,background:'white',flexWrap:'wrap'}}>
+        {categories.map(([value,label])=><button key={value} aria-pressed={category===value} onClick={()=>{setCategory(value);setExpanded(null);}} style={{padding:'12px 16px',borderRadius:10,border:'1px solid #d2dfd6',background:category===value?'#2d6a4f':'white',color:category===value?'white':'#2d6a4f',fontWeight:600}}>{label} · {new Set(records.filter(r=>categoryOf(r)===value).map(r=>r.clientNom?.trim())).size}</button>)}
+      </div>
+      {category==='commandes'&&orderError&&<p role="status" style={{padding:16}}>{orderError}</p>}
+
       <div style={{ background: 'white', borderBottom: '1px solid #e2e8f0', padding: '12px 16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
         <span style={{ fontSize: '13px', color: '#94a3b8', flexShrink: 0 }}>Trier :</span>
         {[['activite', 'Récent'], ['nom', 'Nom A→Z'], ['ca', 'CA ↓']].map(([v, l]) => (
@@ -70,7 +103,7 @@ export default function Clients() {
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {clients.length === 0 && (
           <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '15px', padding: '40px 0' }}>
-            Aucun client — les clients apparaissent automatiquement depuis les devis
+            Aucun client dans cette catégorie — les fiches apparaissent depuis les devis et les commandes.
           </p>
         )}
         {clients.map(c => {
@@ -93,8 +126,8 @@ export default function Clients() {
                     <span style={{ fontSize: '11px', padding: '2px 7px', borderRadius: '999px', background: ss.bg, color: ss.color, fontWeight: '600' }}>{ss.label}</span>
                   </div>
                   <p style={{ fontSize: '13px', color: '#94a3b8' }}>
-                    {c.devis.length} devis{nbAcceptes > 0 ? ` · ${nbAcceptes} accepté${nbAcceptes > 1 ? 's' : ''}` : ''}
-                    {ca > 0 ? ` · CA ${fmt(ca)}` : ''}
+                    {c.devis.length} {category==='commandes'?'commande(s)':'devis'}{category!=='commandes'&&nbAcceptes > 0 ? ` · ${nbAcceptes} accepté${nbAcceptes > 1 ? 's' : ''}` : ''}
+                    {ca > 0 ? ` · ${category==='commandes'?'Encaissé':'CA'} ${fmt(ca)}` : ''}
                   </p>
                 </div>
                 {isOpen ? <ChevronUp size={18} color="#94a3b8" style={{ flexShrink: 0 }} /> : <ChevronDown size={18} color="#94a3b8" style={{ flexShrink: 0 }} />}
@@ -102,6 +135,7 @@ export default function Clients() {
 
               {isOpen && (
                 <div style={{ borderTop: '1px solid #f1f5f9' }}>
+                  {(c.telephone||c.email)&&<p style={{padding:'12px 18px'}}>{c.telephone}{c.telephone&&c.email?' · ':''}{c.email}</p>}
                   {c.adresse && (
                     <div style={{ padding: '10px 18px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                       <p style={{ fontSize: '13px', color: '#64748b', whiteSpace: 'pre-wrap' }}>{c.adresse}</p>
@@ -111,21 +145,21 @@ export default function Clients() {
                     const ds = DEVIS_STATUT_STYLE[d.statut] || DEVIS_STATUT_STYLE.attente;
                     const type = PRESTATION_TYPES.find(t => t.value === d.prestationType);
                     return (
-                      <div key={d.id} onClick={() => navigate('/devis', { state: { openDevisId: d.id } })} style={{ padding: '12px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                      <div key={d.id} onClick={() => d._order ? navigate('/commandes') : navigate('/devis', { state: { openDevisId: d.id } })} style={{ padding: '12px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
                         <div>
                           <p style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>{d.numero}</p>
                           <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
-                            {type?.label}{d.datePrestation ? ' · ' + fmtDate(d.datePrestation) : ''}
+                            {d._order?'Commande · retrait':type?.label}{d.datePrestation ? ' · ' + fmtDate(d.datePrestation) : ''}
                           </p>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <p style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{fmt(calcTTC(d.lignes, d.tva))}</p>
-                          <p style={{ fontSize: '12px', color: ds.color, fontWeight: '600' }}>{ds.label} →</p>
+                          <p style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{d.pendingPrice ? 'Tarif à confirmer' : fmt(calcTTC(d.lignes, d.tva))}</p>
+                          <p style={{ fontSize: '12px', color: ds.color, fontWeight: '600' }}>{d._order?(d.orderStatus==='collected'?'Payée et retirée':d.orderStatus==='cancelled'?'Annulée':'À retirer'):ds.label} →</p>
                         </div>
                       </div>
                     );
                   })}
-                  {nbAcceptes > 0 && (
+                  {nbAcceptes > 0 && category!=='commandes' && (
                     <button onClick={() => navigate('/prestations')} style={{ width: '100%', padding: '12px 18px', background: '#f0fdf4', border: 'none', color: '#2d6a4f', fontSize: '13px', fontWeight: '600', cursor: 'pointer', textAlign: 'center' }}>
                       Voir les prestations →
                     </button>

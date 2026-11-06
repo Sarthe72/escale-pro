@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getFactures, saveFacture, deleteFacture, getDevis } from '../lib/store';
 import { FACTURE_STATUTS, PRESTATION_TYPES, fmt, fmtDate, calcTTC, calcTotalHT } from '../lib/constants';
 import { genFacturePDF } from '../lib/genFacturePDF';
+import {isVisitor} from '../lib/visitor';
+import {refreshSharedInvoices} from '../lib/crmApi';
 import Modal from '../components/Modal';
 import LignesEditor from '../components/LignesEditor';
 
@@ -144,10 +146,11 @@ export default function Factures() {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [sendModal, setSendModal] = useState(null);
+  const [syncError,setSyncError]=useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
-  const reload = () => { setItems(getFactures()); setDevis(getDevis()); };
+  const reload = async () => { setItems(getFactures()); setDevis(getDevis()); if(!isVisitor){try{await refreshSharedInvoices();setItems(getFactures());setSyncError('');}catch(error){setSyncError(error.message);}} };
   useEffect(() => {
     reload();
     if (location.state?.openAdd) { setModal(true); navigate(location.pathname, { replace: true, state: {} }); }
@@ -159,7 +162,7 @@ export default function Factures() {
   const retard = byStatut('retard');
   const list = tab === 'attente' ? attente : tab === 'payee' ? payees : retard;
 
-  const open = (f = EMPTY) => { setForm({ ...EMPTY, ...f, lignes: f.lignes || [] }); setModal(true); };
+  const open = (f = EMPTY) => { if(f.orderId){navigate(`/factures/${f.id}/imprimer`);return;}setForm({ ...EMPTY, ...f, lignes: f.lignes || [] }); setModal(true); };
   const close = () => { setModal(false); setForm(EMPTY); };
   const submit = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -194,6 +197,7 @@ export default function Factures() {
   return (
     <div>
       {/* Header */}
+      {syncError&&<p role="alert" style={{padding:16,background:'#fff1cb'}}>Factures partagées non actualisées : {syncError}</p>}
       <div style={{ background: '#2d6a4f', padding: '48px 20px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ color: 'white', fontSize: '24px', fontWeight: '700' }}>Factures</h1>
         <button onClick={() => open()} style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', color: 'white', borderRadius: '12px', padding: '10px 16px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}>
@@ -241,7 +245,7 @@ export default function Factures() {
                   {f.datePaiement && <span style={{ fontSize: '13px', color: '#64748b' }}>Payée {fmtDate(f.datePaiement)}</span>}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }} onClick={e => e.stopPropagation()}>
-                  {tab === 'attente' && (
+                  {tab === 'attente' && !f.orderId && (
                     <>
                       <button type="button" onClick={e => markPaid(e, f)} style={{ padding: '12px', background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>✓ Payée</button>
                       <button type="button" onClick={e => markRetard(e, f)} style={{ padding: '12px', background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>⚠ En retard</button>

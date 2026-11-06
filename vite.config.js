@@ -4,11 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
 export default defineConfig({
-  base: '/escale-pro/',
+  build: { rolldownOptions: { input: { main: 'index.html', visiteur: 'visiteur.html' } } },
+  base: process.env.ORDERS_LOCAL === 'true' ? '/' : '/escale-pro/',
   server: {
-    host: true,
+    host: process.env.ORDERS_LOCAL === 'true' ? '127.0.0.1' : true,
     port: 5174,
-    https: true,
+    https: process.env.ORDERS_LOCAL !== 'true',
   },
-  plugins: [react(), tailwindcss(), basicSsl()],
+  plugins: [react(), tailwindcss(), ...(process.env.ORDERS_LOCAL === 'true' ? [] : [basicSsl()])],
 })

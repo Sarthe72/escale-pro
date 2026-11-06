@@ -1,8 +1,12 @@
+import {getCrmToken,crmRequest} from '../lib/crmApi';
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Download, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { getDevis } from '../lib/store';
 import { PRESTATION_TYPES, fmt, fmtDate, calcTTC, calcTotalHT } from '../lib/constants';
+import {isVisitor,getVisitorOrders} from '../lib/visitor';
+import {completedOrderPrestations} from '../lib/holidayReporting';
+const REPORT_TYPES=[...PRESTATION_TYPES,{value:'commandes_noel',label:'Commandes Noël'}];
 
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 const MONTHS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -13,10 +17,13 @@ const TYPE_COLORS = {
   cours:    { bg: '#fdf2f8', color: '#be185d' },
   chambre:  { bg: '#eff6ff', color: '#1d4ed8' },
   multi:    { bg: '#f0fdfa', color: '#0f766e' },
+  commandes_noel: {bg:'#fff1e8',color:'#8c273a'},
 };
 
 export default function Prestations() {
   const [devis, setDevis] = useState([]);
+  const [orders,setOrders]=useState([]);
+  const [ordersError,setOrdersError]=useState('');
   const [year, setYear] = useState(new Date().getFullYear());
   const [sortBy, setSortBy] = useState('date_desc');
   const [filterType, setFilterType] = useState('all');
@@ -32,9 +39,19 @@ export default function Prestations() {
       setActiveMonth(location.state.month);
     }
   }, []);
+  useEffect(()=>{
+    if(isVisitor){setOrders(getVisitorOrders());return;}
+    const token=getCrmToken();
+    if(!token){setOrdersError('Les commandes Noël ne sont pas chargées : accès sécurisé au CRM requis.');return;}
+    const controller=new AbortController();
+    crmRequest('orders',{token,signal:controller.signal}).then(data=>setOrders(data.orders))
+      .catch(error=>{if(error.name!=='AbortError')setOrdersError('Les commandes Noël ne peuvent pas être chargées. Le bilan ci-dessous est incomplet.');});
+    return()=>controller.abort();
+  },[]);
 
   // Prestations = devis acceptés
-  const all = devis.filter(d => d.statut === 'accepte');
+  const holidayEntries=completedOrderPrestations(orders);
+  const all = [...devis.filter(d => d.statut === 'accepte'),...holidayEntries];
 
   const getDate = (d) => d.datePrestation || d.dateAcceptation || d.createdAt || '';
 
@@ -72,12 +89,12 @@ export default function Prestations() {
   const monthChips = Array.from({ length: 12 }, (_, i) => {
     const m = String(i + 1).padStart(2, '0');
     const key = `${year}-${m}`;
-    const items = byYear.filter(d => getDate(d).startsWith(key));
+    const items = byType.filter(d => getDate(d).startsWith(key));
     return { key, short: MONTHS_SHORT[i], total: items.reduce((s, d) => s + calcTTC(d.lignes, d.tva), 0), count: items.length };
   });
 
   // Recap by type
-  const recapType = PRESTATION_TYPES.map(t => ({
+  const recapType = REPORT_TYPES.map(t => ({
     ...t,
     count: byYear.filter(d => d.prestationType === t.value).length,
     total: byYear.filter(d => d.prestationType === t.value).reduce((s, d) => s + calcTTC(d.lignes, d.tva), 0),
@@ -90,7 +107,7 @@ export default function Prestations() {
   const exportCSV = () => {
     const rows = [['Date', 'Client', 'Type', 'Devis', 'Description', 'Montant HT', 'TVA', 'Montant TTC']];
     sorted.forEach(d => {
-      const type = PRESTATION_TYPES.find(t => t.value === d.prestationType)?.label || '';
+      const type = REPORT_TYPES.find(t => t.value === d.prestationType)?.label || '';
       rows.push([
         d.datePrestation || d.dateAcceptation || '',
         d.clientNom || '',
@@ -113,6 +130,7 @@ export default function Prestations() {
 
   return (
     <div>
+      <section style={{padding:16,background:'#fff2e6',color:'#5c3036'}}><strong>Commandes Noël · campagne 2026–2027 : {fmt(holidayEntries.reduce((sum,entry)=>sum+calcTTC(entry.lignes,entry.tva),0))}</strong><p>{holidayEntries.length} commande(s) payée(s) et retirée(s) · décembre et janvier réunis. Les encaissements ci-dessous sont classés à la date du retrait.</p>{ordersError && <p role="status">{ordersError}</p>}</section>
       {/* Header */}
       <div style={{ background: '#2d6a4f', padding: '48px 20px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
@@ -223,7 +241,7 @@ export default function Prestations() {
           <option value="client">A→Z Client</option>
         </select>
         <div style={{ width: '1px', height: '24px', background: '#e2e8f0', flexShrink: 0 }} />
-        {[{ value: 'all', label: 'Tous' }, ...PRESTATION_TYPES].map(t => (
+        {[{ value: 'all', label: 'Tous' }, ...REPORT_TYPES].map(t => (
           <button key={t.value} onClick={() => setFilterType(t.value)}
             style={{ flex: '0 0 auto', padding: '8px 12px', borderRadius: '8px', border: `1px solid ${filterType === t.value ? '#2d6a4f' : '#e2e8f0'}`, background: filterType === t.value ? '#2d6a4f' : 'white', color: filterType === t.value ? 'white' : '#64748b', fontSize: '12px', cursor: 'pointer', fontWeight: filterType === t.value ? '600' : '400', whiteSpace: 'nowrap' }}>
             {t.label}
@@ -254,7 +272,7 @@ export default function Prestations() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {items.map(d => {
-                    const type = PRESTATION_TYPES.find(t => t.value === d.prestationType);
+                    const type = REPORT_TYPES.find(t => t.value === d.prestationType);
                     const tc = TYPE_COLORS[d.prestationType] || { bg: '#f1f5f9', color: '#64748b' };
                     return (
                       <div key={d.id} style={{ background: 'white', borderRadius: '14px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>

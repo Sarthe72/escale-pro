@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { assertWritable } from '../lib/visitor';
 
 const PIN_KEY      = 'ep_pin_v2';
 const RECOVERY_KEY = 'ep_recovery_v2';
@@ -17,10 +18,11 @@ export function checkPin(pin) {
   return encode(pin) === storedPin();
 }
 export function savePin(pin) {
+  assertWritable();
   localStorage.setItem(PIN_KEY, encode(pin));
   localStorage.setItem(SETUP_KEY, '1');
 }
-export function logout() { sessionStorage.removeItem(AUTH_KEY); }
+export function logout() { assertWritable(); sessionStorage.removeItem(AUTH_KEY); }
 
 function genRecovery() {
   return String(Math.floor(10000000 + Math.random() * 89999999));

@@ -42,6 +42,7 @@ export function genFacturePDF(f) {
   let y = 20;
 
   drawWatermark(doc);
+  if(f.example){doc.setFontSize(10);doc.setTextColor(130,70,20);doc.text('EXEMPLE — SANS VALEUR COMPTABLE',105,10,{align:'center'});}
 
   // ─── En-tête gauche ───
   doc.setFontSize(12);
@@ -87,6 +88,7 @@ export function genFacturePDF(f) {
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(45, 106, 79);
   doc.text(`Facture n° ${f.numero}`, L, y);
+  if(f.statut==='payee'){doc.setFontSize(9);doc.text('ACQUITTEE',R,y,{align:'right'});}
   y += 5;
   if (f.datePrestation) {
     const typeLabel = PRESTATION_TYPES.find(t => t.value === f.prestationType)?.label || '';
@@ -191,7 +193,7 @@ export function genFacturePDF(f) {
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(26, 26, 26);
   doc.text('Mode de règlement : ', L, y);
-  doc.setFont('helvetica', 'normal'); doc.text('Chèque ou virement', L + 43, y); y += 6;
+  doc.setFont('helvetica', 'normal'); doc.text(({cash:'Espèces',cheque:'Chèque',instant_transfer:'Virement immédiat'})[f.paymentMode]||'Chèque ou virement', L + 43, y); y += 6;
   doc.setFont('helvetica', 'bold'); doc.text('IBAN : ', L, y);
   doc.setFont('helvetica', 'normal'); doc.text('FR76 1240 6000 1780 0303 1638 332', L + 15, y); y += 6;
   doc.setFont('helvetica', 'bold'); doc.text('BIC : ', L, y);

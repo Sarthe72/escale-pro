@@ -1,4 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import {useState,useEffect} from 'react';
+import {refreshSharedInvoices} from '../lib/crmApi';
+import {isVisitor} from '../lib/visitor';
 import { getFactures } from '../lib/store';
 import { calcTotalHT, calcTTC, fmt } from '../lib/constants';
 import { Printer, ArrowLeft } from 'lucide-react';
@@ -29,11 +32,13 @@ const fmtDateLong = (d) => {
 export default function PrintFacture() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const doc = getFactures().find(f => f.id === id);
+  const [doc,setDoc]=useState(()=>getFactures().find(f=>f.id===id));
+  const [error,setError]=useState('');
+  useEffect(()=>{let live=true;setDoc(getFactures().find(f=>f.id===id));if(!isVisitor&&id.startsWith('holiday-invoice-'))refreshSharedInvoices().then(()=>{if(live)setDoc(getFactures().find(f=>f.id===id));}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[id]);
 
   if (!doc) return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-      <p className="text-slate-500">Facture introuvable.</p>
+      <p className="text-slate-500">{error||'Chargement de la facture…'}</p>
       <button onClick={() => navigate(-1)} className="text-[#2d6a4f] underline text-sm">Retour</button>
     </div>
   );
@@ -87,6 +92,8 @@ export default function PrintFacture() {
       </div>
 
       <div className="print-doc">
+        {error&&<p role="alert" className="no-print">Actualisation impossible : {error}</p>}
+        {doc.example && <p style={{background:'#fff1cb',padding:12,fontWeight:700}}>EXEMPLE — SANS VALEUR COMPTABLE</p>}
         {/* Filigrane fond */}
         <div className="logo-wm" dangerouslySetInnerHTML={{ __html: LOGO }}
           style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '520px', height: '624px', opacity: 0.12, pointerEvents: 'none', zIndex: 0 }} />
@@ -122,7 +129,8 @@ export default function PrintFacture() {
 
         {/* Titre */}
         <div style={{ marginBottom: '24px', fontSize: '13px' }}>
-          <p>Facture</p>
+          <p>Facture n° {doc.numero}</p>
+          {doc.statut==='payee' && <p style={{color:'#2d6a4f',fontWeight:700}}>Acquittée · paiement reçu{doc.datePaiement ? ` le ${fmtDateLong(doc.datePaiement)}` : ''}</p>}
           {doc.description && <p>{doc.description}</p>}
         </div>
 
