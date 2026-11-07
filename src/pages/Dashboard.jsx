@@ -5,6 +5,7 @@ import { FileText, Receipt, AlertCircle, Plus } from 'lucide-react';
 import { getDevis, getFactures } from '../lib/store';
 import { PRESTATION_TYPES, fmt, fmtDate, calcTTC } from '../lib/constants';
 import {signOutCrm} from '../lib/crmApi';
+import LocalBackup from '../components/LocalBackup';
 
 const LOGO_HEADER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" fill="none">
   <ellipse cx="100" cy="110" rx="85" ry="100" stroke="rgba(255,255,255,0.5)" stroke-width="3.5" fill="none"/>
@@ -158,6 +159,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        <LocalBackup />
         {/* Actions discrètes */}
         <div style={{ textAlign: 'center', paddingTop: '4px', paddingBottom: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
 

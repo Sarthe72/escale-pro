@@ -29,7 +29,7 @@ visitorOrders.push({ ...visitorOrders[0], id:'EXEMPLE-COMMANDE-008',firstName:'A
   {id:'tartelette',name:'Tartelette périgourdine',price:1000,quantity:1},
   {id:'truite',name:'Truite de Borrèze en gravlax',price:900,quantity:1},
   {id:'volaille',name:'Suprême de volaille farcie',price:1400,quantity:1},
-  {id:'poisson',name:'Poisson à l’américaine · espèce à confirmer',price:1500,quantity:1},
+  {id:'poisson',name:'Lotte à l’américaine',price:1500,quantity:1},
   {id:'chocolat',name:'Royal chocolat',price:550,quantity:1},
   {id:'ananas',name:'Entremets ananas et yuzu',price:550,quantity:1},
  ] });

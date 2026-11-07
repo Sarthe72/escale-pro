@@ -2,7 +2,7 @@ export const orderCatalog = [
  {id:'tartelette',name:'Tartelette périgourdine',price:1000},
  {id:'truite',name:'Truite de Borrèze en gravlax',price:900},
  {id:'volaille',name:'Suprême de volaille farcie',price:1400},
- {id:'poisson',name:'Poisson à l’américaine · espèce à confirmer',price:1500},
+ {id:'poisson',name:'Lotte à l’américaine',price:1500},
  {id:'chocolat',name:'Royal chocolat',price:550},
  {id:'ananas',name:'Entremets ananas et yuzu',price:550},
 ];

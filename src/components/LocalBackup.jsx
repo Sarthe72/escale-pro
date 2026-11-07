@@ -1,0 +1,10 @@
+import {useRef,useState} from 'react';
+import {isVisitor} from '../lib/visitor';
+import {exportLocalBackup,restoreMissingLocalData} from '../lib/localBackup';
+export default function LocalBackup(){
+ const input=useRef();const [status,setStatus]=useState('');
+ if(isVisitor)return null;
+ function save(){try{const data=exportLocalBackup(localStorage);const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`Escale-Pro-sauvegarde-${data.createdAt.slice(0,10)}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setStatus('Sauvegarde préparée. Conservez le fichier dans un endroit sûr.');}catch(error){setStatus(error.message);}}
+ async function restore(event){const file=event.target.files[0];if(!file)return;try{if(file.size>20000000)throw Error('Fichier trop volumineux.');const data=JSON.parse(await file.text());if(!confirm('Ajouter les éléments manquants depuis cette sauvegarde ? Les documents déjà présents seront conservés.'))return;const count=restoreMissingLocalData(localStorage,data);setStatus(`${count} élément(s) ajouté(s). Actualisez la page pour les voir.`);}catch(error){setStatus(error.message);}finally{event.target.value='';}}
+ return <details style={{marginTop:24,padding:16,background:'white',borderRadius:12}}><summary>Sauvegarde de mes documents</summary><p style={{margin:'12px 0'}}>Sauvegarde des clients, devis, factures et prestations enregistrés sur cet appareil. Les commandes partagées et leurs factures sont conservées sur le serveur.</p><div style={{display:'flex',gap:12,flexWrap:'wrap'}}><button type="button" onClick={save}>Télécharger ma sauvegarde</button><button type="button" onClick={()=>input.current.click()}>Restaurer les éléments manquants</button></div><input ref={input} type="file" accept="application/json,.json" style={{display:'none'}} onChange={restore}/>{status&&<p role="status">{status}</p>}</details>;
+}

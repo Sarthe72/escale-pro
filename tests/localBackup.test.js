@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {exportLocalBackup,restoreMissingLocalData} from '../src/lib/localBackup.js';
+const storage=()=>{const data=new Map();return {getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};};
+test('la sauvegarde ne contient ni session ni PIN',()=>{const s=storage();s.setItem('ep_crm_session','secret');s.setItem('ep_pin','secret');assert.ok(!JSON.stringify(exportLocalBackup(s)).includes('secret'));});
+test('restauration : conserve un document existant et ajoute seulement les manquants',()=>{const a=storage();a.setItem('ep_devis',JSON.stringify([{id:'1',name:'ancien'},{id:'2'}]));const backup=exportLocalBackup(a);const b=storage();b.setItem('ep_devis',JSON.stringify([{id:'1',name:'actuel'}]));assert.equal(restoreMissingLocalData(b,backup),1);assert.equal(JSON.parse(b.getItem('ep_devis'))[0].name,'actuel');});
+test('un fichier incomplet ne modifie aucune donnée',()=>{const s=storage();const before=JSON.stringify(exportLocalBackup(s));assert.throws(()=>restoreMissingLocalData(s,{format:'escale-pro-local',version:1,data:{}}));assert.equal(JSON.stringify(exportLocalBackup(s)).replace(/createdAt[^,]+,/,''),before.replace(/createdAt[^,]+,/,''));});
