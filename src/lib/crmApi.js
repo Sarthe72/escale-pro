@@ -11,6 +11,6 @@ export async function crmRequest(path,{method='GET',body,key,signal,token=getCrm
  if(!response.ok)throw Error(data.error||'Connexion impossible au CRM.');
  return data;
 }
-export async function signInCrm(key){const data=await crmRequest('login',{method:'POST',body:{key},token:''});sessionStorage.setItem(SESSION_KEY,data.token);return data;}
+export async function signInCrm(proof){const data=await crmRequest('login',{method:'POST',body:proof,token:''});sessionStorage.setItem(SESSION_KEY,data.token);return data;}
 export async function refreshSharedInvoices(){const data=await crmRequest('invoices');invoices=data.invoices;return cachedSharedInvoices();}
 export async function signOutCrm(){try{await crmRequest('logout',{method:'POST',body:{}});}finally{clearCrmSession();}}

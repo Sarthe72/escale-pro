@@ -5,6 +5,7 @@ import { FileText, Receipt, AlertCircle, Plus } from 'lucide-react';
 import { getDevis, getFactures } from '../lib/store';
 import { PRESTATION_TYPES, fmt, fmtDate, calcTTC } from '../lib/constants';
 import {signOutCrm} from '../lib/crmApi';
+import {checkPin,savePin,logout} from '../components/PinScreen';
 import LocalBackup from '../components/LocalBackup';
 
 const LOGO_HEADER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" fill="none">
@@ -25,8 +26,63 @@ const LOGO_HEADER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 24
 
 const card = { background: 'white', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' };
 
+function ChangePinModal({ onClose }) {
+  const [cur, setCur] = useState('');
+  const [next1, setNext1] = useState('');
+  const [next2, setNext2] = useState('');
+  const [err, setErr] = useState('');
+
+  const submit = () => {
+    if (!checkPin(cur)) { setErr('Code actuel incorrect'); return; }
+    if (!/^\d{4}$/.test(next1)) { setErr('Le nouveau code doit contenir 4 chiffres'); return; }
+    if (next1 !== next2) { setErr('Les codes ne correspondent pas'); return; }
+    savePin(next1);
+    onClose(true);
+  };
+
+  const inp = (val, set) => (
+    <input
+      type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+      value={val} onChange={e => { set(e.target.value.replace(/\D/g, '').slice(0,4)); setErr(''); }}
+      style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '20px', letterSpacing: '0.3em', textAlign: 'center', outline: 'none', boxSizing: 'border-box' }}
+    />
+  );
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(false); }}>
+      <div style={{ background: 'white', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#1e293b' }}>Changer le code PIN</h2>
+          <button type="button" onClick={() => onClose(false)} style={{ background: 'none', border: 'none', fontSize: '22px', color: '#94a3b8', cursor: 'pointer' }}>×</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Code actuel</p>
+            {inp(cur, setCur)}
+          </div>
+          <div>
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Nouveau code (4 chiffres)</p>
+            {inp(next1, setNext1)}
+          </div>
+          <div>
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Confirmer le nouveau code</p>
+            {inp(next2, setNext2)}
+          </div>
+          {err && <p style={{ fontSize: '14px', color: '#dc2626', textAlign: 'center' }}>{err}</p>}
+          <button type="button" onClick={submit}
+            style={{ marginTop: '8px', padding: '16px', borderRadius: '14px', background: '#2d6a4f', border: 'none', color: 'white', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [devis, setDevis] = useState([]);
+  const [showPinModal,setShowPinModal]=useState(false);
   const [factures, setFactures] = useState([]);
 
   const navigate = useNavigate();
@@ -160,10 +216,12 @@ export default function Dashboard() {
         )}
 
         <LocalBackup />
+        {showPinModal&&<ChangePinModal onClose={()=>setShowPinModal(false)}/>}
         {/* Actions discrètes */}
         <div style={{ textAlign: 'center', paddingTop: '4px', paddingBottom: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
 
-          <button type="button" onClick={async() => { await signOutCrm(); }}
+          <button type="button" onClick={()=>setShowPinModal(true)} style={{background:"none",border:0,color:"#94a3b8",padding:8}}>Changer le code PIN</button>
+          <button type="button" onClick={async() => { logout();try{await signOutCrm();}finally{location.reload();} }}
             style={{ background: 'none', border: 'none', fontSize: '13px', color: '#94a3b8', cursor: 'pointer', padding: '8px 16px' }}>
             Se déconnecter
           </button>

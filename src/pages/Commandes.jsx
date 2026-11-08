@@ -8,7 +8,8 @@ import {crmRequest,getCrmToken,refreshSharedInvoices} from '../lib/crmApi';
 const money = value => value === null ? 'Tarif à confirmer' : (value / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 const paymentNames = { cash: 'Espèces', cheque: 'Chèque', instant_transfer: 'Virement immédiat' };
 export default function Commandes() {
- const token=isVisitor ? 'visitor' : getCrmToken();
+ const [token,setToken]=useState(isVisitor ? 'visitor' : getCrmToken());
+ useEffect(()=>{const update=()=>setToken(getCrmToken());window.addEventListener('ep-crm-connected',update);window.addEventListener('ep-crm-session',update);return()=>{window.removeEventListener('ep-crm-connected',update);window.removeEventListener('ep-crm-session',update);};},[]);
  const [orders, setOrders] = useState([]);
  const [manual,setManual]=useState(false);
  const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [pickup, setPickup] = useState('');
@@ -28,6 +29,7 @@ export default function Commandes() {
  const selected=orders.filter(o=>!pickup||o.pickup===pickup).sort((a,b)=>rank(a.status)-rank(b.status)||a.pickup.localeCompare(b.pickup)||(a.createdAt||'').localeCompare(b.createdAt||'')||a.id.localeCompare(b.id));
  const production = new Map(); selected.filter(o=>o.status==='confirmed').forEach(o=>o.items.forEach(i=>production.set(i.name,(production.get(i.name)||0)+i.quantity)));
  return <><PageHeader title="Commandes des fêtes"/><main className="orders-page" style={{maxWidth:800,margin:'auto',padding:20}}>
+ {!isVisitor&&!token&&<p role="status">Les commandes partagées seront disponibles après l’association de cet appareil. Votre accès habituel au CRM reste disponible.</p>}
  {error && <p role="alert" style={{background:'#fff0eb',padding:16}}>{error}</p>}
  {isVisitor && <aside style={{background:'#fff1cb',padding:16,marginBottom:16}}><p><strong>Simulation du rush · {orders.length} clients fictifs</strong></p><p>Le bouton de paiement et retrait est actif pour cet essai. Les totaux et les portions à préparer évoluent après chaque validation. Aucune commande réelle n’est modifiée.</p><button type="button" onClick={()=>{resetVisitorOrders();refresh();}}>Recommencer la simulation</button></aside>}
  <>

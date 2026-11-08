@@ -10,6 +10,7 @@ import Prestations from './pages/Prestations';
 import PrintDevis from './pages/PrintDevis';
 import PrintFacture from './pages/PrintFacture';
 import CrmSession from './components/CrmSession';
+import PinScreen from './components/PinScreen';
 import Commandes from './pages/Commandes';
 
 const NAV = [
@@ -114,7 +115,7 @@ export default function App() {
   const content = <AppContent />;
   return (
     <Router>
-      {isVisitor ? <div onSubmitCapture={event=>{if(!event.target.matches('[data-visitor-form]')){event.preventDefault();event.stopPropagation();}}} onClickCapture={event=>{const link=event.target.closest('a');if(link && /^(mailto:|tel:|https?:)/.test(link.getAttribute('href')||'')){event.preventDefault();event.stopPropagation();}}}><div role="status" style={{background:'#fff1cb',color:'#563d11',padding:'12px 20px',fontWeight:600}}>Mode visiteur · Données fictives · Simulation disponible dans Commandes</div>{content}</div> : <CrmSession>{content}</CrmSession>}
+      {isVisitor ? <div onSubmitCapture={event=>{if(!event.target.matches('[data-visitor-form]')){event.preventDefault();event.stopPropagation();}}} onClickCapture={event=>{const link=event.target.closest('a');if(link && /^(mailto:|tel:|https?:)/.test(link.getAttribute('href')||'')){event.preventDefault();event.stopPropagation();}}}><div role="status" style={{background:'#fff1cb',color:'#563d11',padding:'12px 20px',fontWeight:600}}>Mode visiteur · Données fictives · Simulation disponible dans Commandes</div>{content}</div> : <PinScreen><CrmSession>{content}</CrmSession></PinScreen>}
     </Router>
   );
 }

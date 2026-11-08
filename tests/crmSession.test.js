@@ -7,7 +7,7 @@ test('une session CRM commune protège les factures et se révoque à la déconn
  const originalFetch=globalThis.fetch;const requests=[];
  globalThis.fetch=async(url,options)=>{requests.push({url,options});return {ok:true,status:200,json:async()=>url.endsWith('/login')?{token:'session-test'}:url.endsWith('/invoices')?{invoices:[{id:'holiday-invoice-1'}]}:{ok:true}};};
  try{
-  await signInCrm('cle-de-test');assert.equal(getCrmToken(),'session-test');
+  await signInCrm({deviceId:'appareil-test',challengeId:'challenge-test',signature:'preuve-test'});assert.equal(JSON.parse(requests[0].options.body).deviceId,'appareil-test');assert.ok(!JSON.parse(requests[0].options.body).key);assert.equal(getCrmToken(),'session-test');
   await refreshSharedInvoices();assert.equal(cachedSharedInvoices().length,1);assert.equal(requests.at(-1).options.headers.Authorization,'Bearer session-test');
   await signOutCrm();assert.equal(getCrmToken(),'');assert.equal(cachedSharedInvoices().length,0);assert.ok(events.includes('ep-crm-session'));
   storage.set('ep_crm_session','session-expiree');
