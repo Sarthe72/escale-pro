@@ -56,6 +56,7 @@ function BottomNav() {
             fontWeight: isActive ? '700' : '400',
             color: isActive ? '#2d6a4f' : '#94a3b8',
             textDecoration: 'none',
+            textAlign: 'center',
           })}>
             <Icon size={22} />
             {label}
