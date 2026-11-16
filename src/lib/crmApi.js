@@ -8,7 +8,7 @@ export async function crmRequest(path,{method='GET',body,key,signal,token=getCrm
  const response=await fetch(`${CRM_API}/${path}`,{method,signal,headers:{...(body?{'Content-Type':'application/json'}:{}),...(key?{'Idempotency-Key':key}:{}),...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});
  let data;try{data=await response.json();}catch{throw Error('Le service est momentanément indisponible.');}
  if(response.status===401&&token)clearCrmSession();
- if(!response.ok)throw Error(data.error||'Connexion impossible au CRM.');
+ if(!response.ok){const error=Error(data.error||'Connexion impossible au CRM.');error.status=response.status;throw error;}
  return data;
 }
 export async function signInCrm(proof){const data=await crmRequest('login',{method:'POST',body:proof,token:''});sessionStorage.setItem(SESSION_KEY,data.token);return data;}
